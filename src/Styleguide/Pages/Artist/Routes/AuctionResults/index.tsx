@@ -1,176 +1,231 @@
-import { Sans, Serif } from "@artsy/palette"
+import { AuctionResults_artist } from "__generated__/AuctionResults_artist.graphql"
+import { ContextConsumer, ContextProps } from "Components/Artsy"
 import React from "react"
-import { Box } from "Styleguide/Elements/Box"
-import { Col, Row } from "Styleguide/Elements/Grid"
-import { ResponsiveImage } from "Styleguide/Elements/Image"
-import { LargeSelect } from "Styleguide/Elements/Select"
-import { Separator } from "Styleguide/Elements/Separator"
-import { Spacer } from "Styleguide/Elements/Spacer"
-import { selectProps } from "Styleguide/Pages/Fixtures/Select"
-import { Responsive } from "Styleguide/Utils/Responsive"
+import { Subscribe } from "unstated"
+import { AuctionResults } from "./AuctionResults"
+import { FilterState } from "./state"
 
-const TableColumns = () => {
-  return (
-    <Responsive>
-      {({ xs, sm, md }) => {
-        if (xs || sm || md) {
-          return (
-            <React.Fragment>
-              <Col sm={6}>
-                <Sans size="2" weight="medium">
-                  Work
-                </Sans>
-              </Col>
-              <Col sm={6}>
-                <Sans size="2" weight="medium">
-                  Price
-                </Sans>
-              </Col>
-            </React.Fragment>
-          )
-        } else {
-          return (
-            <React.Fragment>
-              <Col sm={5}>
-                <Sans size="2" weight="medium">
-                  Work
-                </Sans>
-              </Col>
-              <Col sm={3}>
-                <Sans size="2" weight="medium">
-                  Sale
-                </Sans>
-              </Col>
-              <Col sm={4}>
-                <Sans size="2" weight="medium">
-                  Price
-                </Sans>
-              </Col>
-            </React.Fragment>
-          )
+import {
+  createRefetchContainer,
+  graphql,
+  QueryRenderer,
+  RelayRefetchProp,
+} from "react-relay"
+
+const PAGE_SIZE = 10
+
+interface Props extends ContextProps {
+  artistID: string
+}
+
+interface AuctionResultsProps {
+  relay: RelayRefetchProp
+  artist: AuctionResults_artist
+}
+
+export const RelayAuctionResults = ContextConsumer(
+  class extends React.Component<Props> {
+    render() {
+      const { artistID, relayEnvironment } = this.props
+
+      return (
+        <Subscribe to={[FilterState]}>
+          {filters => {
+            const { sort } = filters.state
+
+            return (
+              <QueryRenderer
+                environment={relayEnvironment}
+                query={graphql`
+                  query AuctionResultsIndexQuery(
+                    $artistID: String!
+                    $first: Int!
+                    $sort: AuctionResultSorts
+                  ) {
+                    artist(id: $artistID) {
+                      ...AuctionResults_artist
+                        @arguments(first: $first, sort: $sort)
+                    }
+                  }
+                `}
+                variables={{
+                  artistID,
+                  first: PAGE_SIZE,
+                  sort,
+                }}
+                render={({ props }) => {
+                  if (props) {
+                    return <Container artist={props.artist} />
+                  } else {
+                    return null
+                  }
+                }}
+              />
+            )
+          }}
+        </Subscribe>
+      )
+    }
+  }
+)
+
+const Container = createRefetchContainer(
+  class extends React.Component<AuctionResultsProps> {
+    loadPrev = () => {
+      const {
+        startCursor,
+        hasPreviousPage,
+      } = this.props.artist.auctionResults.pageInfo
+
+      if (hasPreviousPage) {
+        this.loadBefore(startCursor)
+      }
+    }
+
+    loadNext = () => {
+      const {
+        hasNextPage,
+        endCursor,
+      } = this.props.artist.auctionResults.pageInfo
+
+      if (hasNextPage) {
+        this.loadAfter(endCursor)
+      }
+    }
+
+    loadBefore(cursor) {
+      this.props.relay.refetch(
+        {
+          first: null,
+          before: cursor,
+          artistID: this.props.artist.id,
+          after: null,
+          last: PAGE_SIZE,
+        },
+        null,
+        error => {
+          if (error) {
+            console.error(error)
+          }
         }
-      }}
-    </Responsive>
-  )
-}
+      )
+    }
 
-const TableContent = () => {
-  return (
-    <Responsive>
-      {({ xs, sm, md }) => {
-        if (xs || sm || md) {
-          return (
-            <React.Fragment>
-              <Col sm={1}>
-                <Box maxWidth="70px" width="70px" height="auto">
-                  <ResponsiveImage src="https://picsum.photos/70/105/?random" />
-                </Box>
-              </Col>
-              <Col sm={5}>
-                <Box pr={6}>
-                  <Serif size="2" italic>
-                    Plan B, 2011
-                  </Serif>
-                  <Serif size="2">14 1/2 x 76 1/2 x 25 1/2 in</Serif>
-                  <Spacer pt={1} />
-                  <Serif size="1" color="black60">
-                    anodized aluminum clear and black with amber and black
-                    Plexiglass bottom...
-                  </Serif>
-                </Box>
-              </Col>
-              <Col sm={6}>
-                <Serif size="2">Sale: GBP 1,408,000</Serif>
-                <Serif size="2" color="black60">
-                  Est: GBP 400,000 - GBP 600,000
-                </Serif>
-              </Col>
-            </React.Fragment>
-          )
-        } else {
-          return (
-            <React.Fragment>
-              <Col sm={1}>
-                <Box maxWidth="70px" width="70px" height="auto">
-                  <ResponsiveImage src="https://picsum.photos/70/105/?random" />
-                </Box>
-              </Col>
-              <Col sm={4}>
-                <Box pr={2}>
-                  <Serif size="2" italic>
-                    Plan B, 2011
-                  </Serif>
-                  <Serif size="2">14 1/2 x 76 1/2 x 25 1/2 in</Serif>
-                  <Spacer pt={1} />
-                  <Serif size="1" color="black60">
-                    anodized aluminum clear and black with amber and black
-                    Plexiglass bottom...
-                  </Serif>
-                </Box>
-              </Col>
-              <Col sm={3}>
-                <Box pt={1} pr={2}>
-                  <Serif size="2">Sotheby’s</Serif>
-                  <Serif size="2" color="black60">
-                    February 10, 2015
-                  </Serif>
-                  <Serif size="2" color="black60">
-                    <a href="#">Full description</a>
-                  </Serif>
-                </Box>
-              </Col>
-              <Col sm={4}>
-                <Serif size="2">Sale: GBP 1,408,000</Serif>
-                <Serif size="2" color="black60">
-                  Est: GBP 400,000 - GBP 600,000
-                </Serif>
-              </Col>
-            </React.Fragment>
-          )
+    loadAfter = cursor => {
+      this.props.relay.refetch(
+        {
+          first: PAGE_SIZE,
+          after: cursor,
+          artistID: this.props.artist.id,
+          before: null,
+          last: null,
+        },
+        null,
+        error => {
+          if (error) {
+            console.error(error)
+          }
         }
-      }}
-    </Responsive>
-  )
-}
+      )
+    }
 
-export const AuctionResults = () => {
-  return (
-    <React.Fragment>
-      <Row>
-        <Col sm={2} pr={2}>
-          <Row>
-            <Col>
-              <Sans size="2" weight="medium">
-                939 Results
-              </Sans>
-            </Col>
-          </Row>
-
-          <Box pt={0.5}>
-            <Separator />
-          </Box>
-
-          <Row>
-            <Col>
-              <LargeSelect {...selectProps} />
-            </Col>
-          </Row>
-        </Col>
-
-        <Col sm={10}>
-          <Row>
-            <TableColumns />
-          </Row>
-
-          <Box pt={0.5}>
-            <Separator />
-          </Box>
-
-          <Row>
-            <TableContent />
-          </Row>
-        </Col>
-      </Row>
-    </React.Fragment>
-  )
-}
+    render() {
+      return (
+        <AuctionResults
+          {...this.props}
+          loadAfter={this.loadAfter}
+          loadNext={this.loadNext}
+          loadPrev={this.loadPrev}
+        />
+      )
+    }
+  },
+  {
+    artist: graphql`
+      fragment AuctionResults_artist on Artist
+        @argumentDefinitions(
+          sort: { type: "AuctionResultSorts" }
+          first: { type: "Int" }
+          last: { type: "Int" }
+          after: { type: "String" }
+          before: { type: "String" }
+        ) {
+        id
+        auctionResults(
+          first: $first
+          after: $after
+          before: $before
+          last: $last
+          sort: $sort
+        ) {
+          pageInfo {
+            hasNextPage
+            hasPreviousPage
+            startCursor
+            endCursor
+          }
+          pageCursors {
+            around {
+              cursor
+              page
+              isCurrent
+            }
+            first {
+              cursor
+              page
+              isCurrent
+            }
+            last {
+              cursor
+              page
+              isCurrent
+            }
+          }
+          edges {
+            node {
+              title
+              dimension_text
+              organization
+              images {
+                thumbnail {
+                  url
+                }
+              }
+              description
+              date_text
+              sale_date_text
+              price_realized {
+                display
+                cents_usd
+              }
+              estimate {
+                display
+              }
+            }
+          }
+        }
+      }
+    `,
+  },
+  graphql`
+    query AuctionResultsQuery(
+      $first: Int
+      $last: Int
+      $after: String
+      $before: String
+      $sort: AuctionResultSorts
+      $artistID: String!
+    ) {
+      artist(id: $artistID) {
+        ...AuctionResults_artist
+          @arguments(
+            first: $first
+            last: $last
+            after: $after
+            before: $before
+            sort: $sort
+          )
+      }
+    }
+  `
+)
